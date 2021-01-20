@@ -12,7 +12,7 @@ schedules:
   branches:
     include:
     - simulation
-  always: false 
+  always: true 
 
 stages:
 - stage: 'Build'
