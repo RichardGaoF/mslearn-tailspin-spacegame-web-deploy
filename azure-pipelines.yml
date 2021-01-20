@@ -7,7 +7,7 @@ variables:
 
 # Define a Scheduled Trigger that is applied on the 'Test' stage below
 schedules:
-- cron: '0 3 * * *'
+- cron: '30 12 * * *'
   displayName: Deploy every day at 3 A.M.
   branches:
     include:
@@ -74,27 +74,6 @@ stages:
 
     - publish: '$(Build.ArtifactStagingDirectory)'
       artifact: drop
-
-- stage: 'Build2'
-  displayName: 'Build the web application???'
-  jobs: 
-  - job: 'Build'
-    displayName: 'Build job'
-    pool:
-      vmImage: 'ubuntu-18.04'
-      demands:
-      - npm
-
-    variables:
-      wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-      dotnetSdkVersion: '3.1.300'
-
-    steps:
-    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)!!!" > buildinfo.txt'
-      displayName: 'Write build info'
-      workingDirectory: $(wwwrootDir)
-
-
 
 ### If the deployments for Dev, Test and Staging environment have same jobs/tasks, we can use template skill 
 - stage: 'Dev'
