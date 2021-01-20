@@ -131,44 +131,38 @@ stages:
   dependsOn: Dev
   condition: eq(variables['Build.Reason'], 'Schedule')
   jobs:
-  - deployment: Deploy
+  - job: 'Build'
+    displayName: 'Simuate deploying to Test environment'
     pool:
       vmImage: 'ubuntu-18.04'
-    environment: test
+      demands:
+      - npm
+
     variables:
-    - group: 'Release'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
-          - task: AzureWebApp@1
-            displayName: 'Azure App Service Deploy: website'
-            inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
-              appName: '$(WebAppNameTest)'  # Pipeline variable that records the Test environment hostname
-              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+      wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
+      dotnetSdkVersion: '3.1.300'
+
+    steps:
+    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)!!!" > buildinfo.txt'
+      displayName: 'Write build info'
+      workingDirectory: $(wwwrootDir)
 
 - stage: 'Staging'
   displayName: 'Deploy to the staging environment'
   dependsOn: Test
   jobs:
-  - deployment: Deploy
+  - job: 'Build'
+    displayName: 'Simuate deploying to Staging environment'
     pool:
       vmImage: 'ubuntu-18.04'
-    environment: staging
+      demands:
+      - npm
+
     variables:
-    - group: 'Release'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
-          - task: AzureWebApp@1
-            displayName: 'Azure App Service Deploy: website'
-            inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
-              appName: '$(WebAppNameStaging)' # Pipeline variable that records the Staging environment hostname
-              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+      wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
+      dotnetSdkVersion: '3.1.300'
+
+    steps:
+    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)!!!" > buildinfo.txt'
+      displayName: 'Write build info'
+      workingDirectory: $(wwwrootDir)
