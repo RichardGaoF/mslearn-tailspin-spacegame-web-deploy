@@ -94,16 +94,16 @@ stages:
     pool:
       vmImage: 'ubuntu-18.04'
       demands:
-      - npm
+      - npm
 
     variables:
     wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
     dotnetSdkVersion: '3.1.300'
 
-  steps:
-  - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-        displayName: 'Write build info'
-        workingDirectory: $(wwwrootDir)
+    steps:
+    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+          displayName: 'Write build info'
+          workingDirectory: $(wwwrootDir)
 
 - stage: 'Test'
   displayName: 'Deploy to the test environment'
@@ -121,26 +121,25 @@ stages:
     wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
     dotnetSdkVersion: '3.1.300'
 
+    steps:
+      - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+            displayName: 'Write build info'
+            workingDirectory: $(wwwrootDir)
 
 - stage: 'Staging'
   displayName: 'Deploy to the staging environment'
   dependsOn: Test
   jobs:
-  - deployment: Deploy
+  - job: 'Build'
+    displayName: 'Simulating deploying to Staging'
     pool:
       vmImage: 'ubuntu-18.04'
-    environment: staging
+    
     variables:
-    - group: 'Release'
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: drop
-          - task: AzureWebApp@1
-            displayName: 'Azure App Service Deploy: website'
-            inputs:
-              azureSubscription: 'Resource Manager - Tailspin - Space Game'
-              appName: '$(WebAppNameStaging)' # Pipeline variable that records the Staging environment hostname
-              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+    wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
+    dotnetSdkVersion: '3.1.300'
+
+    steps:
+      - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+            displayName: 'Write build info'
+            workingDirectory: $(wwwrootDir)
