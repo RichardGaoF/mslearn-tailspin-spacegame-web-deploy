@@ -89,57 +89,68 @@ stages:
       eq(variables['Build.SourceBranchName'], variables['releaseBranchName'])
     )
   jobs:
-  - job: 'Build'
-    displayName: 'Simulating deploying to Dev'
+  - deployment: Deploy
     pool:
       vmImage: 'ubuntu-18.04'
-      demands:
-      - npm
-
+    environment: dev  # This will has a 'dev' item in the Azure Pipelines -> Environments
     variables:
-    wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-    dotnetSdkVersion: '3.1.300'
-
-    steps:
-    - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-          displayName: 'Write build info'
-          workingDirectory: $(wwwrootDir)
+    - group: Release
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            displayName: 'Azure App Service Deploy: website'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appName: '$(WebAppNameDev)' # Pipeline variable that records the Dev environment hostname
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
 
 - stage: 'Test'
   displayName: 'Deploy to the test environment'
   dependsOn: Dev
   condition: eq(variables['Build.Reason'], 'Schedule')
   jobs:
-  - job: 'Build'
-    displayName: 'Simulating deploying to Test'
+  - deployment: Deploy
     pool:
       vmImage: 'ubuntu-18.04'
-      demands:
-      - npm
-
+    environment: test
     variables:
-    wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-    dotnetSdkVersion: '3.1.300'
-
-    steps:
-      - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-            displayName: 'Write build info'
-            workingDirectory: $(wwwrootDir)
+    - group: 'Release'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            displayName: 'Azure App Service Deploy: website'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appName: '$(WebAppNameTest)'  # Pipeline variable that records the Test environment hostname
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
 
 - stage: 'Staging'
   displayName: 'Deploy to the staging environment'
   dependsOn: Test
   jobs:
-  - job: 'Build'
-    displayName: 'Simulating deploying to Staging'
+  - deployment: Deploy
     pool:
       vmImage: 'ubuntu-18.04'
-    
+    environment: staging
     variables:
-    wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-    dotnetSdkVersion: '3.1.300'
-
-    steps:
-      - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-            displayName: 'Write build info'
-            workingDirectory: $(wwwrootDir)
+    - group: 'Release'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            displayName: 'Azure App Service Deploy: website'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appName: '$(WebAppNameStaging)' # Pipeline variable that records the Staging environment hostname
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
