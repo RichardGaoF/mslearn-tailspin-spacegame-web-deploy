@@ -7,6 +7,9 @@ variables:
   # Container Docker tasks used variables
   webRepository: 'web'
   tag: '$(Build.BuildId)' # specific version of the container being referenced
+  # Container Kubernetes tasks used variables
+  leaderboardRepository: 'leaderboard'
+  imagePullSecret: 'secret'
 
 stages:
 - stage: 'Build'
@@ -71,7 +74,7 @@ stages:
 
     # Generate a Container image by the Dockerfile to push to Azure Container Registry service
     - task: Docker@2
-      displayName: 'Build and push the image to container registry'
+      displayName: 'Build and push the website image to container registry'
       inputs:
         command: buildAndPush
         buildContext: $(Build.Repository.LocalPath)
@@ -80,6 +83,21 @@ stages:
         containerRegistry: 'Container Registry Connection'
         tags: |
           $(tag) 
+        
+    # Generate a Container image by the Dockerfile to push to Azure Container Registry service
+    - task: Docker@2
+      displayName: 'Build and push the leaderboard image to container registry'
+      inputs:
+        command: buildAndPush
+        buildContext: $(Build.Repository.LocalPath)
+        repository: $(leaderboardRepository)
+        dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.LeaderboardContainer/Dockerfile'
+        containerRegistry: 'Container Registry Connection'
+        tags: |
+          $(tag)
+    # Publish the manifests file as an Artifact
+    - publish: '$(Build.SourcesDirectory)/manifests'
+      artifact: manifests
 
   - job: BuildDacpac
     pool:
@@ -196,6 +214,52 @@ stages:
        azureSubscription: 'Resource Manager - Tailspin - Space Game'
        # Which image is used to generate a container instance that is deployed to the Azure App Service instance 
        imageName: $(RegistryName)/$(webRepository):$(build.buildId)
+
+- stage: 'DeployK8S'
+  displayName: 'Deploy the containers(Kubernetes)'
+  dependsOn: Build
+  jobs:
+  - deployment: Deploy
+    displayName: Deploy
+    pool:
+      vmImage: 'ubuntu-18.04'
+    environment: 'spike.default'  # Manually created in Azure Portal in advance
+    variables:
+    - group: Release
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          # Get the latest version of manifests from Azure Artifact
+          - download: current
+            artifact: manifests
+          # Task KubernetesManifest@0 manages all of the mainstream deployment operations required for Kubernetes
+          # Create an Secret to be able to pull image(s) from ACR 
+          - task: KubernetesManifest@0
+            displayName: Create imagePullSecret
+            inputs:
+              action: createSecret  # creates the shared secret
+              secretName: $(imagePullSecret)  # name of the secret to create
+              dockerRegistryEndpoint: 'Container Registry Connection' # name of the ACR connection
+              kubernetesServiceConnection: 'Kubernetes Cluster Connection'  # name of the AKS connection
+              namespace: 'default'  # specifies the Kubernetes namespace this action applies to
+          # Deploy the Kubernetes cluster using the manifests, secret, and images from ACR
+          - task: KubernetesManifest@0
+            displayName: Deploy to Kubernetes cluster
+            inputs:
+              action: deploy
+              kubernetesServiceConnection: 'Kubernetes Cluster Connection'  # name of the AKS connection
+              namespace: 'default'  # specifies the Kubernetes namespace this action applies to
+              manifests: |
+                $(Pipeline.Workspace)/manifests/deployment.yml
+                $(Pipeline.Workspace)/manifests/service.yml
+              # specifies the list of secrets needed to pull images from the container registry
+              imagePullSecrets: |
+                $(imagePullSecret)
+              # the list of container images to deploy
+              containers: |
+                $(RegistryName)/$(webRepository):$(tag)
+                $(RegistryName)/$(leaderboardRepository):$(tag)
 
 - stage: 'Dev'
   displayName: 'Deploy to the dev environment'
