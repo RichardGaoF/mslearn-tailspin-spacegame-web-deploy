@@ -186,6 +186,31 @@ stages:
               azureSubscription: 'Resource Manager - Tailspin - Space Game'
               appName: '$(WebAppNameDev)'
               package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+          # Insert the Task in any 'deploy' stage to deploy Azure Functions source code build to relevant environments(Dev, Test, Staging)
+          - task: AzureFunctionApp@1
+            displayName: 'Azure Function Deploy: leaderboard'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game' # service connection name
+              appType: functionAppLinux # Azure Funtions instance based on Linux or Windows
+              appName: '$(LeaderboardAppName)'  # Azure Funtions instance name
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/Tailspin.SpaceGame.LeaderboardFunction.zip'
+              runtimeStack: DOCKER|microsoft/azure-functions-dotnet-core3.0:3.0 # image
+              startUpCommand: 'func azure functionapp publish $(functionAppName) --no-bundler' # required for Linux
+          # Insert the Task to configure the App Service webapp to use the Azure Functions app 'leaderboard' API
+          - task: AzureAppServiceSettings@1
+            displayName: 'Update web app settings'
+            inputs:
+              azureSubscription: 'Resource Manager - Tailspin - Space Game'
+              appName: $(WebAppName)
+              resourceGroupName: $(ResourceGroupName)
+              appSettings: |
+                [
+                  {
+                    "name": "AppSettings:LeaderboardFunctionUrl",
+                    "value": "http://$(LeaderboardAppName).azurewebsites.net/api/LeaderboardFunction",
+                    "slotSetting": false
+                  }
+                ]
 
 - stage: 'Test'
   displayName: 'Deploy to the test environment'
